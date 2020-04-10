@@ -21,12 +21,13 @@ class MediaPlayer : IMediaPlayer {
 
     // interface IMediaPlayer
 
-    override fun play(url: String) {
+    override fun play(song: Song) {
         val userAgent = Util.getUserAgent(context, context.getString(R.string.app_name))
 
         val mediaSource = ExtractorMediaSource.Factory(DefaultDataSourceFactory(context, userAgent))
             .setExtractorsFactory(DefaultExtractorsFactory())
             .createMediaSource(Uri.parse(url))
+        val uri = Uri.parse(song.soundUrl)
 
         exoPlayer.prepare(mediaSource)
 
