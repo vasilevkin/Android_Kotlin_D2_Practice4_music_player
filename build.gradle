@@ -36,6 +36,6 @@ ext {
                     material  : "1.0.0",
                     constraint: "2.0.0-beta4"
             ],
-            exoplayer : "2.8.1"
+            exoplayer : "2.10.5"
     ]
 }
