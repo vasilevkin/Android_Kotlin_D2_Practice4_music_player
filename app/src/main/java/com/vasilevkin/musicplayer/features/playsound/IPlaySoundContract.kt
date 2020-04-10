@@ -1,5 +1,6 @@
 package com.vasilevkin.musicplayer.features.playsound
 
+import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.player.IMediaPlayer
 
 
@@ -11,7 +12,7 @@ interface IPlaySoundContract {
 
         fun getPlayer(): IMediaPlayer
 
-        fun play(url: String)
+        fun play(song: Song)
 
         fun releasePlayer()
 
