@@ -4,14 +4,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.vasilevkin.musicplayer.R
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
 import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
+import com.vasilevkin.musicplayer.model.local.Audio
 
 
 class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
@@ -19,11 +23,22 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
     private var player: MediaPlayerService? = null
     var serviceBound = false
 
+    var audioList: ArrayList<Audio>? = null
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
+        loadAudio()
+        if (audioList != null) {
+            //play the first audio in the ArrayList
+            playAudio(audioList?.get(0)?.data!!)
+            Toast.makeText(this@MainActivity, "Play first song on the device", Toast.LENGTH_LONG).show()
+        } else {
+            playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
+            Toast.makeText(this@MainActivity, "No songs on the device", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onSaveInstanceState(savedInstanceState: Bundle) {
@@ -71,6 +86,33 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
             //Send media with BroadcastReceiver
         }
     }
+
+
+    private fun loadAudio() {
+        val contentResolver = contentResolver
+        val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val selection = MediaStore.Audio.Media.IS_MUSIC + "!= 0"
+        val sortOrder = MediaStore.Audio.Media.TITLE + " ASC"
+        val cursor: Cursor? = contentResolver.query(uri, null, selection, null, sortOrder)
+        if (cursor != null && cursor.getCount() > 0) {
+            audioList = ArrayList()
+            while (cursor.moveToNext()) {
+                val data: String =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
+                val title: String =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))
+                val album: String =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))
+                val artist: String =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
+                // Save to audioList
+                audioList!!.add(Audio(data, title, album, artist))
+            }
+        }
+        cursor!!.close()
+    }
+
+
 }
 
 
