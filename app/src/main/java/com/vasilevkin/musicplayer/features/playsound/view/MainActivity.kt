@@ -16,6 +16,8 @@ import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
 import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
 import com.vasilevkin.musicplayer.model.local.Audio
+import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
+import com.vasilevkin.musicplayer.utils.StorageUtil
 
 
 class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
@@ -23,7 +25,8 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
     private var player: MediaPlayerService? = null
     var serviceBound = false
 
-    var audioList: ArrayList<Audio>? = null
+    var audioList: ArrayList<Audio?>? = null
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +76,27 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
 
         override fun onServiceDisconnected(name: ComponentName) {
             serviceBound = false
+        }
+    }
+
+    private fun playAudio(audioIndex: Int) {
+        //Check if service is active
+        if (!serviceBound) {
+            //Store Serializable audioList to SharedPreferences
+            val storage = StorageUtil(applicationContext)
+            storage.storeAudio(audioList)
+            storage.storeAudioIndex(audioIndex)
+            val playerIntent = Intent(this, MediaPlayerService::class.java)
+            startService(playerIntent)
+            bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        } else {
+            //Store the new audioIndex to SharedPreferences
+            val storage = StorageUtil(applicationContext)
+            storage.storeAudioIndex(audioIndex)
+            //Service is active
+            //Send a broadcast to the service -> PLAY_NEW_AUDIO
+            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
+            sendBroadcast(broadcastIntent)
         }
     }
 

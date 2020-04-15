@@ -1,22 +1,37 @@
 package com.vasilevkin.musicplayer.features.foregroundservice
 
+import android.R
+import android.app.Notification
+import android.app.Notification.MediaStyle
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.media.AudioManager.OnAudioFocusChangeListener
+import android.media.MediaMetadata
 import android.media.MediaPlayer
 import android.media.MediaPlayer.*
+import android.media.session.MediaController.TransportControls
+import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
 import android.os.Binder
 import android.os.IBinder
+import android.os.RemoteException
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import android.util.Log
-import sun.jvm.hotspot.utilities.IntArray
+import androidx.core.app.NotificationCompat
+import com.google.android.exoplayer2.ui.PlayerNotificationManager
+import com.vasilevkin.musicplayer.model.local.Audio
+import com.vasilevkin.musicplayer.model.local.PlaybackStatus
+import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
+import com.vasilevkin.musicplayer.utils.StorageUtil
 import java.io.IOException
-import javax.print.attribute.standard.PrinterStateReason.PAUSED
 
 
 class MediaPlayerService : Service(),
@@ -41,7 +56,38 @@ class MediaPlayerService : Service(),
     private var phoneStateListener: PhoneStateListener? = null
     private var telephonyManager: TelephonyManager? = null
 
+    //List of available Audio files
+    private var audioList: ArrayList<Audio?>? = null
+    private var audioIndex = -1
+    //an object of the currently playing audio
+    private var activeAudio: Audio? = null
 
+    val ACTION_PLAY = "com.valdioveliu.valdio.audioplayer.ACTION_PLAY"
+    val ACTION_PAUSE = "com.valdioveliu.valdio.audioplayer.ACTION_PAUSE"
+    val ACTION_PREVIOUS = "com.valdioveliu.valdio.audioplayer.ACTION_PREVIOUS"
+    val ACTION_NEXT = "com.valdioveliu.valdio.audioplayer.ACTION_NEXT"
+    val ACTION_STOP = "com.valdioveliu.valdio.audioplayer.ACTION_STOP"
+
+    //MediaSession
+    private var mediaSessionManager: MediaSessionManager? = null
+    private var mediaSession: MediaSession? = null
+    private var transportControls: TransportControls? = null
+
+    //AudioPlayer notification ID
+    private val NOTIFICATION_ID = 101
+
+    override fun onCreate() {
+        super.onCreate()
+        // Perform one-time setup procedures
+        // Manage incoming phone calls during playback.
+        // Pause MediaPlayer on incoming call,
+        // Resume on hangup.
+        callStateListener()
+        //ACTION_AUDIO_BECOMING_NOISY -- change in audio outputs -- BroadcastReceiver
+        registerBecomingNoisyReceiver()
+        //Listen for new Audio to play -- BroadcastReceiver
+        register_playNewAudio()
+    }
     override fun onBind(intent: Intent?): IBinder {
         return iBinder
     }
@@ -160,7 +206,8 @@ class MediaPlayerService : Service(),
         mediaPlayer?.reset()
         mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
         try { // Set the data source to the mediaFile location
-            mediaPlayer?.setDataSource(mediaFilePath)
+            mediaPlayer?.setDataSource(activeAudio?.data);
+//            mediaPlayer?.setDataSource(mediaFilePath)
         } catch (e: IOException) {
             e.printStackTrace()
             stopSelf()
@@ -199,23 +246,55 @@ class MediaPlayerService : Service(),
 
     // Service Lifecycle Methods
 
-    //The system calls this method when an activity, requests the service be started
-    override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        try {
-            //An audio file is passed to the service through putExtra()
-            mediaFilePath = intent.extras!!.getString("media")
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        try { //Load data from SharedPreferences
+            val storage = StorageUtil(getApplicationContext())
+            audioList = storage.loadAudio()
+            audioIndex = storage.loadAudioIndex()
+            if (audioIndex !== -1 && audioIndex < audioList?.size!!) {
+                //index is in a valid range
+                activeAudio = audioList?.get(audioIndex)
+            } else {
+                stopSelf()
+            }
         } catch (e: NullPointerException) {
             stopSelf()
         }
         //Request audio focus
-        if (requestAudioFocus() == false) {
-            //Could not gain focus
+        if (requestAudioFocus() == false) { //Could not gain focus
             stopSelf()
         }
-        if (mediaFilePath != null && mediaFilePath !== "")
-            initMediaPlayer()
+        if (mediaSessionManager == null) {
+            try {
+                initMediaSession()
+                initMediaPlayer()
+            } catch (e: RemoteException) {
+                e.printStackTrace()
+                stopSelf()
+            }
+            buildNotification(PlaybackStatus.PLAYING)
+        }
+        //Handle Intent action from MediaSession.TransportControls
+        handleIncomingActions(intent)
         return super.onStartCommand(intent, flags, startId)
     }
+//    //The system calls this method when an activity, requests the service be started
+//    override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+//        try {
+//            //An audio file is passed to the service through putExtra()
+//            mediaFilePath = intent.extras!!.getString("media")
+//        } catch (e: NullPointerException) {
+//            stopSelf()
+//        }
+//        //Request audio focus
+//        if (requestAudioFocus() == false) {
+//            //Could not gain focus
+//            stopSelf()
+//        }
+//        if (mediaFilePath != null && mediaFilePath !== "")
+//            initMediaPlayer()
+//        return super.onStartCommand(intent, flags, startId)
+//    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -224,6 +303,20 @@ class MediaPlayerService : Service(),
             mediaPlayer!!.release()
         }
         removeAudioFocus()
+
+        //Disable the PhoneStateListener
+        if (phoneStateListener != null) {
+            telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
+        }
+
+        removeNotification();
+
+        //unregister BroadcastReceivers
+        unregisterReceiver(becomingNoisyReceiver);
+        unregisterReceiver(playNewAudio);
+
+        //clear cached playlist
+        StorageUtil(getApplicationContext()).clearCachedAudioPlaylist()
     }
 
     // Dynamic BroadcastReceiver
@@ -233,7 +326,7 @@ class MediaPlayerService : Service(),
         override fun onReceive(context: Context, intent: Intent) {
             //pause audio on ACTION_AUDIO_BECOMING_NOISY
             pauseMedia()
-            buildNotification(PlaybackStatus.PAUSED)
+//            buildNotification(PlaybackStatus.PAUSED)
         }
     }
 
@@ -275,6 +368,241 @@ class MediaPlayerService : Service(),
         telephonyManager!!.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
     }
 
+    private val playNewAudio: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            //Get the new media index from SharedPreferences
+            audioIndex = StorageUtil(applicationContext).loadAudioIndex()
+            if (audioIndex != -1 && audioIndex < audioList!!.size) {
+                //index is in a valid range
+                activeAudio = audioList!![audioIndex]
+            } else {
+                stopSelf()
+            }
+            //A PLAY_NEW_AUDIO action received
+            // reset mediaPlayer to play the new Audio
+            stopMedia()
+            mediaPlayer!!.reset()
+            initMediaPlayer()
+            updateMetaData()
+            buildNotification(PlaybackStatus.PLAYING)
+        }
+    }
+
+    private fun register_playNewAudio() {
+        //Register playNewMedia receiver
+        val filter = IntentFilter(Broadcast_PLAY_NEW_AUDIO)
+        registerReceiver(playNewAudio, filter)
+    }
+
+    // MediaSession
+
+    @Throws(RemoteException::class)
+    private fun initMediaSession() {
+        if (mediaSessionManager != null)
+            return  //mediaSessionManager exists
+
+        mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+        // Create a new MediaSession
+        mediaSession = MediaSession(applicationContext, "AudioPlayer")
+        //Get MediaSessions transport controls
+        transportControls = mediaSession?.getController()?.getTransportControls()
+        //set MediaSession -> ready to receive media commands
+        mediaSession?.setActive(true)
+        //indicate that the MediaSession handles transport control commands
+        // through its MediaSessionCompat.Callback.
+        mediaSession?.setFlags(MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+        //Set mediaSession's MetaData
+        updateMetaData()
+        // Attach Callback to receive MediaSession updates
+        mediaSession?.setCallback(object : MediaSession.Callback() {
+            // Implement callbacks
+            override fun onPlay() {
+                super.onPlay()
+                resumeMedia()
+                buildNotification(PlaybackStatus.PLAYING)
+            }
+
+            override fun onPause() {
+                super.onPause()
+                pauseMedia()
+                buildNotification(PlaybackStatus.PAUSED)
+            }
+
+            override fun onSkipToNext() {
+                super.onSkipToNext()
+                skipToNext()
+                updateMetaData()
+                buildNotification(PlaybackStatus.PLAYING)
+            }
+
+            override fun onSkipToPrevious() {
+                super.onSkipToPrevious()
+                skipToPrevious()
+                updateMetaData()
+                buildNotification(PlaybackStatus.PLAYING)
+            }
+
+            override fun onStop() {
+                super.onStop()
+                removeNotification()
+                //Stop the service
+                stopSelf()
+            }
+
+            override fun onSeekTo(position: Long) {
+                super.onSeekTo(position)
+            }
+        })
+    }
+
+    private fun updateMetaData() {
+        val albumArt = BitmapFactory.decodeResource(resources, R.drawable.ic_media_play)
+        //replace with medias albumArt
+        // Update the current metadata
+        mediaSession?.setMetadata(
+            MediaMetadata.Builder()
+                .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, albumArt)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, activeAudio!!.artist)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, activeAudio!!.album)
+                .putString(MediaMetadata.METADATA_KEY_TITLE, activeAudio!!.title)
+                .build()
+        )
+    }
+
+    private fun skipToNext() {
+        if (audioIndex == audioList!!.size - 1) {
+            //if last in playlist
+            audioIndex = 0
+            activeAudio = audioList!![audioIndex]
+        } else {
+            //get next in playlist
+            activeAudio = audioList!![++audioIndex]
+        }
+        //Update stored index
+        StorageUtil(applicationContext).storeAudioIndex(audioIndex)
+        stopMedia()
+        //reset mediaPlayer
+        mediaPlayer!!.reset()
+        initMediaPlayer()
+    }
+
+    private fun skipToPrevious() {
+        if (audioIndex == 0) {
+            //if first in playlist
+            //set index to the last of audioList
+            audioIndex = audioList!!.size - 1
+            activeAudio = audioList!![audioIndex]
+        } else {
+            //get previous in playlist
+            activeAudio = audioList!![--audioIndex]
+        }
+        //Update stored index
+        StorageUtil(applicationContext).storeAudioIndex(audioIndex)
+        stopMedia()
+        //reset mediaPlayer
+        mediaPlayer!!.reset()
+        initMediaPlayer()
+    }
+
+    // Notifications
+
+    private fun buildNotification(playbackStatus: PlaybackStatus) {
+        var notificationAction = R.drawable.ic_media_pause //needs to be initialized
+        var play_pauseAction: PendingIntent? = null
+        //Build a new notification according to the current state of the MediaPlayer
+        if (playbackStatus === PlaybackStatus.PLAYING) {
+            notificationAction = R.drawable.ic_media_pause
+            //create the pause action
+            play_pauseAction = playbackAction(1)
+        } else if (playbackStatus === PlaybackStatus.PAUSED) {
+            notificationAction = R.drawable.ic_media_play
+            //create the play action
+            play_pauseAction = playbackAction(0)
+        }
+        val largeIcon = BitmapFactory.decodeResource(
+            resources,
+            R.drawable.ic_media_pause
+        ) //replace with your own image
+        // Create a new Notification
+        val notificationBuilder = Notification.Builder(this)
+            .setShowWhen(false) // Set the Notification style
+            .setStyle(
+                MediaStyle() // Attach our MediaSession token
+                    .setMediaSession(mediaSession?.getSessionToken())
+                    // Show our playback controls in the compact notification view.
+                    .setShowActionsInCompactView(0, 1, 2)
+            ) // Set the Notification color
+            .setColor(resources.getColor(R.color.holo_purple)) // Set the large and small icons
+            .setLargeIcon(largeIcon)
+            .setSmallIcon(R.drawable.stat_sys_headset) // Set Notification content information
+            .setContentText(activeAudio!!.artist)
+            .setContentTitle(activeAudio!!.album)
+            .setContentInfo(activeAudio!!.title) // Add playback actions
+            .addAction(R.drawable.ic_media_previous, "previous", playbackAction(3))
+            .addAction(notificationAction, "pause", play_pauseAction)
+            .addAction(
+                R.drawable.ic_media_next,
+                "next",
+                playbackAction(2)
+            ) as NotificationCompat.Builder
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(
+            NOTIFICATION_ID,
+            notificationBuilder.build()
+        )
+    }
+
+    private fun removeNotification() {
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(NOTIFICATION_ID)
+    }
+
+
+    private fun playbackAction(actionNumber: Int): PendingIntent? {
+        val playbackAction = Intent(this, MediaPlayerService::class.java)
+        when (actionNumber) {
+            0 -> {
+                // Play
+                playbackAction.action = ACTION_PLAY
+                return PendingIntent.getService(this, actionNumber, playbackAction, 0)
+            }
+            1 -> {
+                // Pause
+                playbackAction.action = ACTION_PAUSE
+                return PendingIntent.getService(this, actionNumber, playbackAction, 0)
+            }
+            2 -> {
+                // Next track
+                playbackAction.action = PlayerNotificationManager.ACTION_NEXT
+                return PendingIntent.getService(this, actionNumber, playbackAction, 0)
+            }
+            3 -> {
+                // Previous track
+                playbackAction.action = PlayerNotificationManager.ACTION_PREVIOUS
+                return PendingIntent.getService(this, actionNumber, playbackAction, 0)
+            }
+            else -> {
+            }
+        }
+        return null
+    }
+
+
+    private fun handleIncomingActions(playbackAction: Intent?) {
+        if (playbackAction == null || playbackAction.action == null) return
+        val actionString = playbackAction.action
+        if (actionString.equals(ACTION_PLAY, ignoreCase = true)) {
+            transportControls?.play()
+        } else if (actionString.equals(ACTION_PAUSE, ignoreCase = true)) {
+            transportControls?.pause()
+        } else if (actionString.equals(PlayerNotificationManager.ACTION_NEXT, ignoreCase = true)) {
+            transportControls?.skipToNext()
+        } else if (actionString.equals(PlayerNotificationManager.ACTION_PREVIOUS, ignoreCase = true)) {
+            transportControls?.skipToPrevious()
+        } else if (actionString.equals(ACTION_STOP, ignoreCase = true)) {
+            transportControls?.stop()
+        }
+    }
 
 
 }
