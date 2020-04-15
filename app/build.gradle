@@ -39,4 +39,7 @@ dependencies {
 
     // ExoPlayer
     implementation 'com.google.android.exoplayer:exoplayer:' + versions.exoplayer
+
+    // Gson
+    implementation 'com.google.code.gson:gson:' + versions.gson
 }
