@@ -2,7 +2,6 @@ package com.vasilevkin.musicplayer.features.foregroundservice
 
 import android.R
 import android.app.Notification
-import android.app.Notification.MediaStyle
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -22,6 +21,9 @@ import android.media.session.MediaSessionManager
 import android.os.Binder
 import android.os.IBinder
 import android.os.RemoteException
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaControllerCompat
+import android.support.v4.media.session.MediaSessionCompat
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import android.util.Log
@@ -70,8 +72,8 @@ class MediaPlayerService : Service(),
 
     //MediaSession
     private var mediaSessionManager: MediaSessionManager? = null
-    private var mediaSession: MediaSession? = null
-    private var transportControls: TransportControls? = null
+    private var mediaSession: MediaSessionCompat? = null
+    private var transportControls: MediaControllerCompat.TransportControls? = null
 
     //AudioPlayer notification ID
     private val NOTIFICATION_ID = 101
@@ -206,7 +208,8 @@ class MediaPlayerService : Service(),
         mediaPlayer?.reset()
         mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
         try { // Set the data source to the mediaFile location
-            mediaPlayer?.setDataSource(activeAudio?.data);
+            mediaPlayer?.setDataSource(activeAudio?.data
+                ?: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
 //            mediaPlayer?.setDataSource(mediaFilePath)
         } catch (e: IOException) {
             e.printStackTrace()
@@ -403,18 +406,18 @@ class MediaPlayerService : Service(),
 
         mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         // Create a new MediaSession
-        mediaSession = MediaSession(applicationContext, "AudioPlayer")
+        mediaSession = MediaSessionCompat(applicationContext, "AudioPlayer")
         //Get MediaSessions transport controls
         transportControls = mediaSession?.getController()?.getTransportControls()
         //set MediaSession -> ready to receive media commands
         mediaSession?.setActive(true)
         //indicate that the MediaSession handles transport control commands
         // through its MediaSessionCompat.Callback.
-        mediaSession?.setFlags(MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+        mediaSession?.setFlags(MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS)
         //Set mediaSession's MetaData
         updateMetaData()
         // Attach Callback to receive MediaSession updates
-        mediaSession?.setCallback(object : MediaSession.Callback() {
+        mediaSession?.setCallback(object : MediaSessionCompat.Callback() {
             // Implement callbacks
             override fun onPlay() {
                 super.onPlay()
@@ -460,11 +463,11 @@ class MediaPlayerService : Service(),
         //replace with medias albumArt
         // Update the current metadata
         mediaSession?.setMetadata(
-            MediaMetadata.Builder()
+            MediaMetadataCompat.Builder()
                 .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, albumArt)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, activeAudio!!.artist)
-                .putString(MediaMetadata.METADATA_KEY_ALBUM, activeAudio!!.album)
-                .putString(MediaMetadata.METADATA_KEY_TITLE, activeAudio!!.title)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, activeAudio?.artist ?: "Empty artist")
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, activeAudio?.album ?: "Empty album")
+                .putString(MediaMetadata.METADATA_KEY_TITLE, activeAudio?.title ?: "Empty title")
                 .build()
         )
     }
@@ -524,10 +527,10 @@ class MediaPlayerService : Service(),
             R.drawable.ic_media_pause
         ) //replace with your own image
         // Create a new Notification
-        val notificationBuilder = Notification.Builder(this)
+        val notificationBuilder = NotificationCompat.Builder(this)
             .setShowWhen(false) // Set the Notification style
             .setStyle(
-                MediaStyle() // Attach our MediaSession token
+                androidx.media.app.NotificationCompat.MediaStyle() // Attach our MediaSession token
                     .setMediaSession(mediaSession?.getSessionToken())
                     // Show our playback controls in the compact notification view.
                     .setShowActionsInCompactView(0, 1, 2)
@@ -535,9 +538,9 @@ class MediaPlayerService : Service(),
             .setColor(resources.getColor(R.color.holo_purple)) // Set the large and small icons
             .setLargeIcon(largeIcon)
             .setSmallIcon(R.drawable.stat_sys_headset) // Set Notification content information
-            .setContentText(activeAudio!!.artist)
-            .setContentTitle(activeAudio!!.album)
-            .setContentInfo(activeAudio!!.title) // Add playback actions
+            .setContentText(activeAudio?.artist)
+            .setContentTitle(activeAudio?.album)
+            .setContentInfo(activeAudio?.title) // Add playback actions
             .addAction(R.drawable.ic_media_previous, "previous", playbackAction(3))
             .addAction(notificationAction, "pause", play_pauseAction)
             .addAction(

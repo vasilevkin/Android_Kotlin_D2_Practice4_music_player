@@ -32,7 +32,13 @@ class StorageUtil(private val context: Context?) {
         val gson = Gson()
         val json = preferences!!.getString("audioArrayList", null)
         val type: Type = object : TypeToken<ArrayList<Audio?>?>() {}.type
-        return gson.fromJson(json, type)
+
+        val audioList: ArrayList<Audio?>? = gson.fromJson(json, type)
+
+        if (audioList == null) {
+            return arrayListOf(Audio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg", "new title", "new album", "test artist"))
+        }
+        return audioList
     }
 
     fun storeAudioIndex(index: Int) {
