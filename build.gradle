@@ -34,9 +34,10 @@ ext {
                     ktx       : "1.2.0",
                     appcompat : "1.1.0",
                     material  : "1.0.0",
-                    constraint: "2.0.0-beta4"
+                    constraint: "2.0.0-beta4",
+                    media     : "1.1.0"
             ],
             exoplayer : "2.10.5",
-            gson : "2.7"
+            gson      : "2.7"
     ]
 }
