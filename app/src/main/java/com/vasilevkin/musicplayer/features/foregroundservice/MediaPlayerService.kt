@@ -524,7 +524,7 @@ class MediaPlayerService : Service(),
         }
         val largeIcon = BitmapFactory.decodeResource(
             resources,
-            R.drawable.ic_media_pause
+            R.drawable.ic_btn_speak_now
         ) //replace with your own image
         // Create a new Notification
         val notificationBuilder = NotificationCompat.Builder(this)
@@ -533,7 +533,8 @@ class MediaPlayerService : Service(),
                 androidx.media.app.NotificationCompat.MediaStyle() // Attach our MediaSession token
                     .setMediaSession(mediaSession?.getSessionToken())
                     // Show our playback controls in the compact notification view.
-                    .setShowActionsInCompactView(0, 1, 2)
+                    .setShowActionsInCompactView(0)
+//                    .setShowActionsInCompactView(0, 1, 2)
             ) // Set the Notification color
             .setColor(resources.getColor(R.color.holo_purple)) // Set the large and small icons
             .setLargeIcon(largeIcon)
@@ -541,13 +542,10 @@ class MediaPlayerService : Service(),
             .setContentText(activeAudio?.artist)
             .setContentTitle(activeAudio?.album)
             .setContentInfo(activeAudio?.title) // Add playback actions
-            .addAction(R.drawable.ic_media_previous, "previous", playbackAction(3))
+//            .addAction(R.drawable.ic_media_previous, "previous", playbackAction(3))
             .addAction(notificationAction, "pause", play_pauseAction)
-            .addAction(
-                R.drawable.ic_media_next,
-                "next",
-                playbackAction(2)
-            ) as NotificationCompat.Builder
+//            .addAction(R.drawable.ic_media_next, "next", playbackAction(2))
+                as NotificationCompat.Builder
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(
             NOTIFICATION_ID,
             notificationBuilder.build()
