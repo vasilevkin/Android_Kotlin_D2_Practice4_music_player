@@ -70,6 +70,8 @@ class MediaPlayerService : Service(),
     val ACTION_NEXT = "com.valdioveliu.valdio.audioplayer.ACTION_NEXT"
     val ACTION_STOP = "com.valdioveliu.valdio.audioplayer.ACTION_STOP"
 
+    var duration = mediaPlayer?.duration
+
     //MediaSession
     private var mediaSessionManager: MediaSessionManager? = null
     private var mediaSession: MediaSessionCompat? = null
@@ -170,12 +172,22 @@ class MediaPlayerService : Service(),
         }
     }
 
+    // Local player methods
+
     fun playPause() {
         if (mediaPlayer!!.isPlaying) {
             pauseMedia()
         } else {
             resumeMedia()
         }
+    }
+
+    fun getCurrentPosition() : Int? {
+        return mediaPlayer?.currentPosition
+    }
+
+    fun seekTo(position: Int) {
+        mediaPlayer?.seekTo(position)
     }
 
     // Private
@@ -233,6 +245,7 @@ class MediaPlayerService : Service(),
         if (!mediaPlayer!!.isPlaying) {
             mediaPlayer!!.start()
         }
+        duration = mediaPlayer?.duration
     }
 
     private fun stopMedia() {

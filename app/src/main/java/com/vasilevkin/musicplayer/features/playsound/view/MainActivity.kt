@@ -7,8 +7,11 @@ import android.content.ServiceConnection
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.provider.MediaStore
+import android.widget.SeekBar
+import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.vasilevkin.musicplayer.R
@@ -48,6 +51,33 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         play_pause_button.setOnClickListener {
             player?.playPause()
         }
+
+        player?.duration?.div(1000)?.let { player_seekbar.max = it }
+
+        val mHandler = Handler()
+        runOnUiThread(object : Runnable {
+            override fun run() {
+                if (player != null) {
+                    val mCurrentPosition: Int? = player?.getCurrentPosition()?.div(1000)
+                    if (mCurrentPosition != null) {
+                        player_seekbar.setProgress(mCurrentPosition)
+                    }
+                }
+                mHandler.postDelayed(this, 1000)
+            }
+        })
+
+
+        player_seekbar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if(player != null && fromUser) {
+                    player?.seekTo(progress * 1000)
+                }
+            }
+        })
+
     }
 
     override fun onSaveInstanceState(savedInstanceState: Bundle) {
