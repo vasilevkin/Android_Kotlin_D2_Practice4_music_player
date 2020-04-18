@@ -18,6 +18,7 @@ import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
 import com.vasilevkin.musicplayer.model.local.Audio
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
 import com.vasilevkin.musicplayer.utils.StorageUtil
+import kotlinx.android.synthetic.main.activity_main.*
 
 
 class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
@@ -41,6 +42,11 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         } else {
             playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
             Toast.makeText(this@MainActivity, "No songs on the device", Toast.LENGTH_LONG).show()
+        }
+
+
+        play_pause_button.setOnClickListener {
+            player?.playPause()
         }
     }
 

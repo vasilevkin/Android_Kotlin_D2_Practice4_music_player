@@ -170,6 +170,16 @@ class MediaPlayerService : Service(),
         }
     }
 
+    fun playPause() {
+        if (mediaPlayer!!.isPlaying) {
+            pauseMedia()
+        } else {
+            resumeMedia()
+        }
+    }
+
+    // Private
+
     private fun requestAudioFocus(): Boolean {
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val result = audioManager!!.requestAudioFocus(
