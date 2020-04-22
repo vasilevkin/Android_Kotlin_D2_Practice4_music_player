@@ -1,7 +1,6 @@
 package com.vasilevkin.musicplayer.features.foregroundservice
 
 import android.R
-import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -15,8 +14,6 @@ import android.media.AudioManager.OnAudioFocusChangeListener
 import android.media.MediaMetadata
 import android.media.MediaPlayer
 import android.media.MediaPlayer.*
-import android.media.session.MediaController.TransportControls
-import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.os.Binder
 import android.os.IBinder
@@ -29,7 +26,7 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.exoplayer2.ui.PlayerNotificationManager
-import com.vasilevkin.musicplayer.model.local.Audio
+import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.model.local.PlaybackStatus
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
 import com.vasilevkin.musicplayer.utils.StorageUtil
@@ -59,10 +56,10 @@ class MediaPlayerService : Service(),
     private var telephonyManager: TelephonyManager? = null
 
     //List of available Audio files
-    private var audioList: ArrayList<Audio?>? = null
-    private var audioIndex = -1
+    private var songList: ArrayList<Song?>? = null
+    private var songIndex = -1
     //an object of the currently playing audio
-    private var activeAudio: Audio? = null
+    private var activeSong: Song? = null
 
     val ACTION_PLAY = "com.valdioveliu.valdio.audioplayer.ACTION_PLAY"
     val ACTION_PAUSE = "com.valdioveliu.valdio.audioplayer.ACTION_PAUSE"
@@ -230,7 +227,7 @@ class MediaPlayerService : Service(),
         mediaPlayer?.reset()
         mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
         try { // Set the data source to the mediaFile location
-            mediaPlayer?.setDataSource(activeAudio?.data
+            mediaPlayer?.setDataSource(activeSong?.soundUrl
                 ?: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
 //            mediaPlayer?.setDataSource(mediaFilePath)
         } catch (e: IOException) {
@@ -275,11 +272,11 @@ class MediaPlayerService : Service(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try { //Load data from SharedPreferences
             val storage = StorageUtil(getApplicationContext())
-            audioList = storage.loadAudio()
-            audioIndex = storage.loadAudioIndex()
-            if (audioIndex !== -1 && audioIndex < audioList?.size!!) {
+            songList = storage.loadSongs()
+            songIndex = storage.loadAudioIndex()
+            if (songIndex !== -1 && songIndex < songList?.size!!) {
                 //index is in a valid range
-                activeAudio = audioList?.get(audioIndex)
+                activeSong = songList?.get(songIndex)
             } else {
                 stopSelf()
             }
@@ -397,10 +394,10 @@ class MediaPlayerService : Service(),
     private val playNewAudio: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             //Get the new media index from SharedPreferences
-            audioIndex = StorageUtil(applicationContext).loadAudioIndex()
-            if (audioIndex != -1 && audioIndex < audioList!!.size) {
+            songIndex = StorageUtil(applicationContext).loadAudioIndex()
+            if (songIndex != -1 && songIndex < songList!!.size) {
                 //index is in a valid range
-                activeAudio = audioList!![audioIndex]
+                activeSong = songList!![songIndex]
             } else {
                 stopSelf()
             }
@@ -488,24 +485,24 @@ class MediaPlayerService : Service(),
         mediaSession?.setMetadata(
             MediaMetadataCompat.Builder()
                 .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, albumArt)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, activeAudio?.artist ?: "Empty artist")
-                .putString(MediaMetadata.METADATA_KEY_ALBUM, activeAudio?.album ?: "Empty album")
-                .putString(MediaMetadata.METADATA_KEY_TITLE, activeAudio?.title ?: "Empty title")
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, activeSong?.author ?: "Empty author")
+//                .putString(MediaMetadata.METADATA_KEY_ALBUM, activeAudio?.album ?: "Empty album")
+                .putString(MediaMetadata.METADATA_KEY_TITLE, activeSong?.trackTitle ?: "Empty track title")
                 .build()
         )
     }
 
     private fun skipToNext() {
-        if (audioIndex == audioList!!.size - 1) {
+        if (songIndex == songList!!.size - 1) {
             //if last in playlist
-            audioIndex = 0
-            activeAudio = audioList!![audioIndex]
+            songIndex = 0
+            activeSong = songList!![songIndex]
         } else {
             //get next in playlist
-            activeAudio = audioList!![++audioIndex]
+            activeSong = songList!![++songIndex]
         }
         //Update stored index
-        StorageUtil(applicationContext).storeAudioIndex(audioIndex)
+        StorageUtil(applicationContext).storeAudioIndex(songIndex)
         stopMedia()
         //reset mediaPlayer
         mediaPlayer!!.reset()
@@ -513,17 +510,17 @@ class MediaPlayerService : Service(),
     }
 
     private fun skipToPrevious() {
-        if (audioIndex == 0) {
+        if (songIndex == 0) {
             //if first in playlist
             //set index to the last of audioList
-            audioIndex = audioList!!.size - 1
-            activeAudio = audioList!![audioIndex]
+            songIndex = songList!!.size - 1
+            activeSong = songList!![songIndex]
         } else {
             //get previous in playlist
-            activeAudio = audioList!![--audioIndex]
+            activeSong = songList!![--songIndex]
         }
         //Update stored index
-        StorageUtil(applicationContext).storeAudioIndex(audioIndex)
+        StorageUtil(applicationContext).storeAudioIndex(songIndex)
         stopMedia()
         //reset mediaPlayer
         mediaPlayer!!.reset()
@@ -562,9 +559,9 @@ class MediaPlayerService : Service(),
             .setColor(resources.getColor(R.color.holo_purple)) // Set the large and small icons
             .setLargeIcon(largeIcon)
             .setSmallIcon(R.drawable.stat_sys_headset) // Set Notification content information
-            .setContentText(activeAudio?.artist)
-            .setContentTitle(activeAudio?.album)
-            .setContentInfo(activeAudio?.title) // Add playback actions
+            .setContentText(activeSong?.author)
+//            .setContentTitle(activeAudio?.album)
+            .setContentInfo(activeSong?.trackTitle) // Add playback actions
 //            .addAction(R.drawable.ic_media_previous, "previous", playbackAction(3))
             .addAction(notificationAction, "pause", play_pauseAction)
 //            .addAction(R.drawable.ic_media_next, "next", playbackAction(2))

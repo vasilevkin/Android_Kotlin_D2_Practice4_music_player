@@ -18,7 +18,7 @@ import com.vasilevkin.musicplayer.R
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
 import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
-import com.vasilevkin.musicplayer.model.local.Audio
+import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
 import com.vasilevkin.musicplayer.utils.StorageUtil
 import kotlinx.android.synthetic.main.activity_main.*
@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
     private var player: MediaPlayerService? = null
     var serviceBound = false
 
-    var audioList: ArrayList<Audio?>? = null
+    var songList: ArrayList<Song?>? = null
 
 
 
@@ -38,9 +38,9 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         setContentView(R.layout.activity_main)
 
         loadAudio()
-        if (audioList != null) {
+        if (songList != null) {
             //play the first audio in the ArrayList
-            playAudio(audioList?.get(0)?.data!!)
+            playAudio(songList?.get(0)?.soundUrl!!)
             Toast.makeText(this@MainActivity, "Play first song on the device", Toast.LENGTH_LONG).show()
         } else {
             playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
@@ -120,7 +120,7 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         if (!serviceBound) {
             //Store Serializable audioList to SharedPreferences
             val storage = StorageUtil(applicationContext)
-            storage.storeAudio(audioList)
+            storage.storeAudio(songList)
             storage.storeAudioIndex(audioIndex)
             val playerIntent = Intent(this, MediaPlayerService::class.java)
             startService(playerIntent)
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         val sortOrder = MediaStore.Audio.Media.TITLE + " ASC"
         val cursor: Cursor? = contentResolver.query(uri, null, selection, null, sortOrder)
         if (cursor != null && cursor.getCount() > 0) {
-            audioList = ArrayList()
+            songList = ArrayList()
             while (cursor.moveToNext()) {
                 val data: String =
                     cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
                 val artist: String =
                     cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
                 // Save to audioList
-                audioList!!.add(Audio(data, title, album, artist))
+                songList!!.add(Song(author = artist, trackTitle = title, soundUrl = data))
             }
         }
         cursor!!.close()

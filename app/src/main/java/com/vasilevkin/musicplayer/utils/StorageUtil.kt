@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.vasilevkin.musicplayer.model.local.Audio
+import com.vasilevkin.musicplayer.model.local.Song
 import java.lang.reflect.Type
 
 
@@ -18,7 +18,7 @@ class StorageUtil(private val context: Context?) {
 //        this.context = context
 //    }
 
-    fun storeAudio(arrayList: ArrayList<Audio?>?) {
+    fun storeAudio(arrayList: ArrayList<Song?>?) {
         preferences = context?.getSharedPreferences(STORAGE, Context.MODE_PRIVATE)
         val editor = preferences!!.edit()
         val gson = Gson()
@@ -27,16 +27,20 @@ class StorageUtil(private val context: Context?) {
         editor.apply()
     }
 
-    fun loadAudio(): ArrayList<Audio?>? {
+    fun loadSongs(): ArrayList<Song?>? {
         preferences = context?.getSharedPreferences(STORAGE, Context.MODE_PRIVATE)
         val gson = Gson()
         val json = preferences!!.getString("audioArrayList", null)
-        val type: Type = object : TypeToken<ArrayList<Audio?>?>() {}.type
+        val type: Type = object : TypeToken<ArrayList<Song?>?>() {}.type
 
-        val audioList: ArrayList<Audio?>? = gson.fromJson(json, type)
+        val audioList: ArrayList<Song?>? = gson.fromJson(json, type)
 
         if (audioList == null) {
-            return arrayListOf(Audio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg", "new title", "new album", "test artist"))
+            return arrayListOf(
+                Song( "test artist",
+                    "new title",
+                    "https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
+            )
         }
         return audioList
     }
