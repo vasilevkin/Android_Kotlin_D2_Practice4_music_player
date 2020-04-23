@@ -87,7 +87,7 @@ class MediaPlayerService : Service(),
         //ACTION_AUDIO_BECOMING_NOISY -- change in audio outputs -- BroadcastReceiver
         registerBecomingNoisyReceiver()
         //Listen for new Audio to play -- BroadcastReceiver
-        register_playNewAudio()
+        registerPlayNewAudioBroadcastReceiver()
     }
     override fun onBind(intent: Intent?): IBinder {
         return iBinder
@@ -411,7 +411,7 @@ class MediaPlayerService : Service(),
         }
     }
 
-    private fun register_playNewAudio() {
+    private fun registerPlayNewAudioBroadcastReceiver() {
         //Register playNewMedia receiver
         val filter = IntentFilter(Broadcast_PLAY_NEW_AUDIO)
         registerReceiver(playNewAudio, filter)
