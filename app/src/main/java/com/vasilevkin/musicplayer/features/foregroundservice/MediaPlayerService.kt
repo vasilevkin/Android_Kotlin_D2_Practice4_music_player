@@ -15,19 +15,21 @@ import android.media.MediaMetadata
 import android.media.MediaPlayer
 import android.media.MediaPlayer.*
 import android.media.session.MediaSessionManager
-import android.os.Binder
-import android.os.IBinder
-import android.os.RemoteException
+import android.net.NetworkInfo
+import android.net.wifi.WifiManager
+import android.os.*
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaControllerCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.model.local.PlaybackStatus
+import com.vasilevkin.musicplayer.utils.Broadcast_NETWORK_STATE
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
 import com.vasilevkin.musicplayer.utils.StorageUtil
 import java.io.IOException
@@ -88,6 +90,8 @@ class MediaPlayerService : Service(),
         registerBecomingNoisyReceiver()
         //Listen for new Audio to play -- BroadcastReceiver
         registerPlayNewAudioBroadcastReceiver()
+
+        registerWiFiStatusBroadcastReceiver()
     }
     override fun onBind(intent: Intent?): IBinder {
         return iBinder
@@ -337,6 +341,7 @@ class MediaPlayerService : Service(),
         //unregister BroadcastReceivers
         unregisterReceiver(becomingNoisyReceiver);
         unregisterReceiver(playNewAudio);
+        unregisterReceiver(processConnectionStateChange)
 
         //clear cached playlist
         StorageUtil(getApplicationContext()).clearCachedAudioPlaylist()
@@ -411,10 +416,44 @@ class MediaPlayerService : Service(),
         }
     }
 
+    private val processConnectionStateChange: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val action = intent.getAction();
+            if (action.equals(Broadcast_NETWORK_STATE)) {
+                var networkStatusString : String
+                val networkInfo: NetworkInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO)
+                if (networkInfo.state == NetworkInfo.State.CONNECTED) {
+                    networkStatusString = "CONNECTED"
+                } else {
+                    networkStatusString = "NOT-CONNECTED"
+                }
+
+                val handler = Handler(Looper.getMainLooper())
+                handler.post(Runnable {
+                    Toast.makeText(
+                        this@MediaPlayerService.getApplicationContext(),
+                        "Network state is changed" + networkStatusString,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                })
+            }
+        }
+    }
+
+    // BroadcastReceivers
+
     private fun registerPlayNewAudioBroadcastReceiver() {
         //Register playNewMedia receiver
         val filter = IntentFilter(Broadcast_PLAY_NEW_AUDIO)
         registerReceiver(playNewAudio, filter)
+    }
+
+    private fun registerWiFiStatusBroadcastReceiver() {
+
+        val intentFilter = IntentFilter()
+        intentFilter.addAction(Broadcast_NETWORK_STATE)
+//            SUPPLICANT_CONNECTION_CHANGE_ACTION)
+        registerReceiver(processConnectionStateChange, intentFilter)
     }
 
     // MediaSession
