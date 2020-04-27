@@ -10,21 +10,27 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.provider.MediaStore
+import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.vasilevkin.musicplayer.R
+import com.vasilevkin.musicplayer.base.BaseActivity
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
 import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
+import com.vasilevkin.musicplayer.features.playsound.presenter.PlaySoundPresenter
 import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
 import com.vasilevkin.musicplayer.utils.StorageUtil
 import kotlinx.android.synthetic.main.activity_main.*
 
 
-class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
+class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundContract.View {
+
+    override val presenter: IPlaySoundContract.Presenter = PlaySoundPresenter(this)
+//            by inject { parametersOf(this) }
 
     private var player: MediaPlayerService? = null
     var serviceBound = false
@@ -144,6 +150,8 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         } else { //Service is active
             //Send media with BroadcastReceiver
+            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
+            sendBroadcast(broadcastIntent)
         }
     }
 
@@ -172,7 +180,14 @@ class MainActivity : AppCompatActivity(), IPlaySoundContract.View {
         cursor!!.close()
     }
 
+    // IPlaySoundContract methods
 
+    override fun showError(msg: String) {
+        // show error
+    }
+
+    override val progressBar: ProgressBar
+        get() = ProgressBar(this)
 }
 
 
