@@ -15,6 +15,7 @@ import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import com.vasilevkin.musicplayer.R
 import com.vasilevkin.musicplayer.base.BaseActivity
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
@@ -33,9 +34,7 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
 //            by inject { parametersOf(this) }
 
     private var player: MediaPlayerService? = null
-    var serviceBound = false
 
-    var songList: ArrayList<Song?>? = null
 
 
 
@@ -43,10 +42,12 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        loadAudio()
-        if (songList != null) {
+
+        presenter.onViewCreated()
+//        loadAudio()
+        if (presenter.getSongsList() != null) {
             //play the first audio in the ArrayList
-            playAudio(songList?.get(0)?.soundUrl!!)
+            playAudio(presenter.getSongsList()?.get(0)?.soundUrl!!)
             Toast.makeText(this@MainActivity, "Play first song on the device", Toast.LENGTH_LONG).show()
         } else {
             playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
@@ -87,18 +88,18 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
     }
 
     override fun onSaveInstanceState(savedInstanceState: Bundle) {
-        savedInstanceState.putBoolean("ServiceState", serviceBound)
+        savedInstanceState.putBoolean("ServiceState", presenter.getServiceState())
         super.onSaveInstanceState(savedInstanceState)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
-        serviceBound = savedInstanceState.getBoolean("ServiceState")
+        presenter.setServiceState(savedInstanceState.getBoolean("ServiceState"))
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (serviceBound) {
+        if (presenter.getServiceState()) {
             unbindService(serviceConnection)
             //service is active
             player!!.stopSelf()
@@ -112,21 +113,21 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             val binder = service as LocalBinder
             player = binder.service
-            serviceBound = true
+            presenter.setServiceState(true)
             Toast.makeText(this@MainActivity, "Service Bound", Toast.LENGTH_LONG).show()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            serviceBound = false
+            presenter.setServiceState(false)
         }
     }
 
     private fun playAudio(audioIndex: Int) {
         //Check if service is active
-        if (!serviceBound) {
+        if (!presenter.getServiceState()) {
             //Store Serializable audioList to SharedPreferences
             val storage = StorageUtil(applicationContext)
-            storage.storeAudio(songList)
+            storage.storeAudio(presenter.getSongsList())
             storage.storeAudioIndex(audioIndex)
             val playerIntent = Intent(this, MediaPlayerService::class.java)
             startService(playerIntent)
@@ -143,7 +144,7 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
     }
 
     private fun playAudio(media: String) { //Check if service is active
-        if (!serviceBound) {
+        if (!presenter.getServiceState()) {
             val playerIntent = Intent(this, MediaPlayerService::class.java)
             playerIntent.putExtra("media", media)
             startService(playerIntent)
@@ -156,29 +157,6 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
     }
 
 
-    private fun loadAudio() {
-        val contentResolver = contentResolver
-        val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val selection = MediaStore.Audio.Media.IS_MUSIC + "!= 0"
-        val sortOrder = MediaStore.Audio.Media.TITLE + " ASC"
-        val cursor: Cursor? = contentResolver.query(uri, null, selection, null, sortOrder)
-        if (cursor != null && cursor.getCount() > 0) {
-            songList = ArrayList()
-            while (cursor.moveToNext()) {
-                val data: String =
-                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
-                val title: String =
-                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))
-                val album: String =
-                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))
-                val artist: String =
-                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
-                // Save to audioList
-                songList!!.add(Song(author = artist, trackTitle = title, soundUrl = data))
-            }
-        }
-        cursor!!.close()
-    }
 
     // IPlaySoundContract methods
 

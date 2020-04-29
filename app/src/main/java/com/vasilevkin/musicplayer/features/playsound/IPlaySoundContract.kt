@@ -18,6 +18,12 @@ interface IPlaySoundContract {
         fun releasePlayer()
 
         fun setMediaSessionState(isActive: Boolean)
+
+        fun getServiceState(): Boolean
+
+        fun setServiceState(isBound: Boolean)
+
+        fun getSongsList(): ArrayList<Song?>?
     }
 
     interface View : BaseContract.View
