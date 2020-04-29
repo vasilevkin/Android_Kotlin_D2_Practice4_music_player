@@ -150,26 +150,26 @@ class MediaPlayerService : Service(),
                 if (mediaPlayer == null)
                     initMediaPlayer()
                 else if (!mediaPlayer!!.isPlaying)
-                    mediaPlayer!!.start()
+                    mediaPlayer?.start()
                 mediaPlayer!!.setVolume(1.0f, 1.0f)
             }
             AudioManager.AUDIOFOCUS_LOSS -> {
                 // Lost focus for an unbounded amount of time: stop playback and release media player
                 if (mediaPlayer!!.isPlaying)
-                    mediaPlayer!!.stop()
-                mediaPlayer!!.release()
+                    mediaPlayer?.stop()
+                mediaPlayer?.release()
                 mediaPlayer = null
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ->
                 // Lost focus for a short time, but we have to stop playback.
                 // We don't release the media player because playback is likely to resume
                 if (mediaPlayer!!.isPlaying)
-                    mediaPlayer!!.pause()
+                    mediaPlayer?.pause()
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
                 // Lost focus for a short time, but it's ok to keep playing
                 // at an attenuated level
                 if (mediaPlayer!!.isPlaying)
-                    mediaPlayer!!.setVolume(0.1f, 0.1f)
+                    mediaPlayer?.setVolume(0.1f, 0.1f)
         }
     }
 
@@ -252,14 +252,14 @@ class MediaPlayerService : Service(),
     private fun stopMedia() {
         if (mediaPlayer == null) return
         if (mediaPlayer!!.isPlaying) {
-            mediaPlayer!!.stop()
+            mediaPlayer?.stop()
         }
     }
 
     private fun pauseMedia() {
         if (mediaPlayer!!.isPlaying) {
-            mediaPlayer!!.pause()
-            resumePosition = mediaPlayer!!.currentPosition
+            mediaPlayer?.pause()
+            resumePosition = mediaPlayer?.currentPosition ?: 0
         }
     }
 
