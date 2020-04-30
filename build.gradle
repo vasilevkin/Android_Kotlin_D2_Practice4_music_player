@@ -30,14 +30,16 @@ task clean(type: Delete) {
 
 ext {
     versions = [
-            components: [
+            components             : [
                     ktx       : "1.2.0",
                     appcompat : "1.1.0",
                     material  : "1.0.0",
                     constraint: "2.0.0-beta4",
                     media     : "1.1.0"
             ],
-            exoplayer : "2.10.5",
-            gson      : "2.7"
+            exoplayer              : "2.10.5",
+            gson                   : "2.7",
+            dagger                 : "2.26",
+            dagger_javax_annotation: "1.0"
     ]
 }
