@@ -24,6 +24,7 @@ import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
 import com.vasilevkin.musicplayer.features.playsound.presenter.PlaySoundPresenter
 import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
+import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_PAUSE_CHANGE
 import com.vasilevkin.musicplayer.utils.StorageUtil
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -56,7 +57,9 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
 
 
         play_pause_button.setOnClickListener {
-            player?.playPause()
+            //Send a broadcast to the service -> Broadcast_PLAY_PAUSE_CHANGE
+            val broadcastIntent = Intent(Broadcast_PLAY_PAUSE_CHANGE)
+            sendBroadcast(broadcastIntent)
         }
 
         player?.duration?.div(1000)?.let { player_seekbar.max = it }

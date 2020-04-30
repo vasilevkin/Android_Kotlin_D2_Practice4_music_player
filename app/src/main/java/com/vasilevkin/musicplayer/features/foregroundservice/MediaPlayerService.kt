@@ -31,6 +31,7 @@ import com.vasilevkin.musicplayer.model.local.Song
 import com.vasilevkin.musicplayer.model.local.PlaybackStatus
 import com.vasilevkin.musicplayer.utils.Broadcast_NETWORK_STATE
 import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_NEW_AUDIO
+import com.vasilevkin.musicplayer.utils.Broadcast_PLAY_PAUSE_CHANGE
 import com.vasilevkin.musicplayer.utils.StorageUtil
 import java.io.IOException
 
@@ -92,6 +93,7 @@ class MediaPlayerService : Service(),
         registerPlayNewAudioBroadcastReceiver()
 
         registerWiFiStatusBroadcastReceiver()
+        registerPlayPauseChangeBroadcastReceiver()
     }
     override fun onBind(intent: Intent?): IBinder {
         return iBinder
@@ -174,14 +176,6 @@ class MediaPlayerService : Service(),
     }
 
     // Local player methods
-
-    fun playPause() {
-        if (mediaPlayer!!.isPlaying) {
-            pauseMedia()
-        } else {
-            resumeMedia()
-        }
-    }
 
     fun getCurrentPosition() : Int? {
         return mediaPlayer?.currentPosition
@@ -342,6 +336,7 @@ class MediaPlayerService : Service(),
         unregisterReceiver(becomingNoisyReceiver);
         unregisterReceiver(playNewAudio);
         unregisterReceiver(processConnectionStateChange)
+        unregisterReceiver(playPause)
 
         //clear cached playlist
         StorageUtil(getApplicationContext()).clearCachedAudioPlaylist()
@@ -440,6 +435,16 @@ class MediaPlayerService : Service(),
         }
     }
 
+    private val playPause: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (mediaPlayer!!.isPlaying) {
+                pauseMedia()
+            } else {
+                resumeMedia()
+            }
+        }
+    }
+
     // BroadcastReceivers
 
     private fun registerPlayNewAudioBroadcastReceiver() {
@@ -454,6 +459,11 @@ class MediaPlayerService : Service(),
         intentFilter.addAction(Broadcast_NETWORK_STATE)
 //            SUPPLICANT_CONNECTION_CHANGE_ACTION)
         registerReceiver(processConnectionStateChange, intentFilter)
+    }
+
+    private fun registerPlayPauseChangeBroadcastReceiver() {
+        val filter = IntentFilter(Broadcast_PLAY_PAUSE_CHANGE)
+        registerReceiver(playPause, filter)
     }
 
     // MediaSession
