@@ -4,18 +4,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.database.Cursor
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
-import android.provider.MediaStore
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import com.vasilevkin.musicplayer.R
 import com.vasilevkin.musicplayer.base.BaseActivity
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
@@ -37,8 +32,6 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
     private var player: MediaPlayerService? = null
 
 
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -48,10 +41,12 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
 //        loadAudio()
         if (presenter.getSongsList() != null) {
             //play the first audio in the ArrayList
-            playAudio(presenter.getSongsList()?.get(0)?.soundUrl!!)
-            Toast.makeText(this@MainActivity, "Play first song on the device", Toast.LENGTH_LONG).show()
+            val song = presenter.getSongsList()?.get(0)
+            playAudio(song)
+            Toast.makeText(this@MainActivity, "Play first song on the device", Toast.LENGTH_LONG)
+                .show()
         } else {
-            playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg")
+            playAudio(generateSongData())
             Toast.makeText(this@MainActivity, "No songs on the device", Toast.LENGTH_LONG).show()
         }
 
@@ -82,7 +77,7 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if(player != null && fromUser) {
+                if (player != null && fromUser) {
                     player?.seekTo(progress * 1000)
                 }
             }
@@ -146,20 +141,29 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
         }
     }
 
-    private fun playAudio(media: String) { //Check if service is active
-        if (!presenter.getServiceState()) {
-            val playerIntent = Intent(this, MediaPlayerService::class.java)
-            playerIntent.putExtra("media", media)
-            startService(playerIntent)
-            bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-        } else { //Service is active
-            //Send media with BroadcastReceiver
-            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
-            sendBroadcast(broadcastIntent)
-        }
+    private fun playAudio(song: Song?) {
+//    private fun playAudio(media: String) { //Check if service is active
+        if (song != null)
+            if (!presenter.getServiceState()) {
+                val playerIntent = Intent(this, MediaPlayerService::class.java)
+                playerIntent.putExtra("song", song)
+//            playerIntent.putExtra("media", media)
+                startService(playerIntent)
+                bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+            } else { //Service is active
+                //Send media with BroadcastReceiver
+                val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
+                sendBroadcast(broadcastIntent)
+            }
     }
 
-
+    private fun generateSongData(): Song {
+        return Song(
+            "Test author",
+            "Hardcoded track title",
+            "https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg"
+        )
+    }
 
     // IPlaySoundContract methods
 
