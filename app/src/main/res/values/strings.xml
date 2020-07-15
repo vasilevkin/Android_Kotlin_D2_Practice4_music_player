@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Task 4: Music player</string>
+    <string name="playpause">Play / Pause</string>
 </resources>

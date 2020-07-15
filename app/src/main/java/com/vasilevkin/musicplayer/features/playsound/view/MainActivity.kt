@@ -1,5 +1,7 @@
 package com.vasilevkin.musicplayer.features.playsound.view
 
+//import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -14,7 +16,6 @@ import android.widget.Toast
 import com.vasilevkin.musicplayer.R
 import com.vasilevkin.musicplayer.base.BaseActivity
 import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService
-import com.vasilevkin.musicplayer.features.foregroundservice.MediaPlayerService.LocalBinder
 import com.vasilevkin.musicplayer.features.playsound.IPlaySoundContract
 import com.vasilevkin.musicplayer.features.playsound.presenter.PlaySoundPresenter
 import com.vasilevkin.musicplayer.model.local.Song
@@ -57,16 +58,16 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
             sendBroadcast(broadcastIntent)
         }
 
-        player?.duration?.div(1000)?.let { player_seekbar.max = it }
+//        player?.duration?.div(1000)?.let { player_seekbar.max = it }
 
         val mHandler = Handler()
         runOnUiThread(object : Runnable {
             override fun run() {
                 if (player != null) {
-                    val mCurrentPosition: Int? = player?.getCurrentPosition()?.div(1000)
-                    if (mCurrentPosition != null) {
-                        player_seekbar.setProgress(mCurrentPosition)
-                    }
+//                    val mCurrentPosition: Int? = player?.getCurrentPosition()?.div(1000)
+//                    if (mCurrentPosition != null) {
+//                        player_seekbar.setProgress(mCurrentPosition)
+//                    }
                 }
                 mHandler.postDelayed(this, 1000)
             }
@@ -78,7 +79,7 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (player != null && fromUser) {
-                    player?.seekTo(progress * 1000)
+//                    player?.seekTo(progress * 1000)
                 }
             }
         })
@@ -109,9 +110,9 @@ class MainActivity : BaseActivity<IPlaySoundContract.Presenter>(), IPlaySoundCon
     private val serviceConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance
-            val binder = service as LocalBinder
-            player = binder.service
-            presenter.setServiceState(true)
+//            val binder = service as LocalBinder
+//            player = binder.service
+//            presenter.setServiceState(true)
             Toast.makeText(this@MainActivity, "Service Bound", Toast.LENGTH_LONG).show()
         }
 
